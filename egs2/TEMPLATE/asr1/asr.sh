@@ -108,6 +108,8 @@ nll_batch_size=100 # Affect GPU memory usage when computing nll
                    # during nbest rescoring
 k2_config=./conf/decode_asr_transformer_with_k2.yaml
 
+use_streaming=false # Whether to use streaming decoding
+
 batch_size=1
 inference_tag=    # Suffix to the result dir for decoding.
 inference_config= # Config for decoding.
@@ -143,7 +145,6 @@ lm_fold_length=150         # fold_length for LM training.
 
 help_message=$(cat << EOF
 Usage: $0 --train-set "<train_set_name>" --valid-set "<valid_set_name>" --test_sets "<test_set_names>"
-
 Options:
     # General configuration
     --stage          # Processes starts from the specified stage (default="${stage}").
@@ -160,20 +161,16 @@ Options:
     --dumpdir        # Directory to dump features (default="${dumpdir}").
     --expdir         # Directory to save experiments (default="${expdir}").
     --python         # Specify python to execute espnet commands (default="${python}").
-
     # Data preparation related
     --local_data_opts # The options given to local/data.sh (default="${local_data_opts}").
-
     # Speed perturbation related
     --speed_perturb_factors # speed perturbation factors, e.g. "0.9 1.0 1.1" (separated by space, default="${speed_perturb_factors}").
-
     # Feature extraction related
     --feats_type       # Feature type (raw, fbank_pitch or extracted, default="${feats_type}").
     --audio_format     # Audio format: wav, flac, wav.ark, flac.ark  (only in feats_type=raw, default="${audio_format}").
     --fs               # Sampling rate (default="${fs}").
     --min_wav_duration # Minimum duration in second (default="${min_wav_duration}").
     --max_wav_duration # Maximum duration in second (default="${max_wav_duration}").
-
     # Tokenization related
     --token_type              # Tokenization type (char or bpe, default="${token_type}").
     --nbpe                    # The number of BPE vocabulary (default="${nbpe}").
@@ -184,7 +181,6 @@ Options:
     --bpe_input_sentence_size # Size of input sentence for BPE (default="${bpe_input_sentence_size}").
     --bpe_nlsyms              # Non-linguistic symbol list for sentencepiece, separated by a comma. (default="${bpe_nlsyms}").
     --bpe_char_cover          # Character coverage when modeling BPE (default="${bpe_char_cover}").
-
     # Language model related
     --lm_tag          # Suffix to the result dir for language model training (default="${lm_tag}").
     --lm_exp          # Specify the directory path for LM experiment.
@@ -197,7 +193,6 @@ Options:
     --use_word_lm     # Whether to use word language model (default="${use_word_lm}").
     --word_vocab_size # Size of word vocabulary (default="${word_vocab_size}").
     --num_splits_lm   # Number of splitting for lm corpus (default="${num_splits_lm}").
-
     # ASR model related
     --asr_tag          # Suffix to the result dir for asr model training (default="${asr_tag}").
     --asr_exp          # Specify the directory path for ASR experiment.
@@ -211,7 +206,6 @@ Options:
     --ignore_init_mismatch=      # Ignore mismatch parameter init with pretrained model (default="${ignore_init_mismatch}").
     --feats_normalize  # Normalizaton layer type (default="${feats_normalize}").
     --num_splits_asr   # Number of splitting for lm corpus  (default="${num_splits_asr}").
-
     # Decoding related
     --inference_tag       # Suffix to the result dir for decoding (default="${inference_tag}").
     --inference_config    # Config for decoding (default="${inference_config}").
@@ -221,7 +215,7 @@ Options:
     --inference_lm        # Language model path for decoding (default="${inference_lm}").
     --inference_asr_model # ASR model path for decoding (default="${inference_asr_model}").
     --download_model      # Download a model from Model Zoo and use it for decoding (default="${download_model}").
-
+    --use_streaming       # Whether to use streaming decoding (default="${use_streaming}").
     # [Task dependent] Set the datadir name created by local/data.sh
     --train_set     # Name of training set (required).
     --valid_set     # Name of validation set used for monitoring/tuning network training (required).
@@ -842,7 +836,7 @@ if ! "${skip_train}"; then
                 --ngpu "${ngpu}" \
                 --num_nodes "${num_nodes}" \
                 --init_file_prefix "${lm_exp}"/.dist_init_ \
-                --multiprocessing_distributed true -- \
+                --multiprocessing_distributed false -- \
                 ${python} -m espnet2.bin.lm_train \
                     --ngpu "${ngpu}" \
                     --use_preprocessor true \
@@ -1089,7 +1083,7 @@ if ! "${skip_train}"; then
             --ngpu "${ngpu}" \
             --num_nodes "${num_nodes}" \
             --init_file_prefix "${asr_exp}"/.dist_init_ \
-            --multiprocessing_distributed true -- \
+            --multiprocessing_distributed false -- \
             ${python} -m espnet2.bin.asr_train \
                 --use_preprocessor true \
                 --bpemodel "${bpemodel}" \
@@ -1180,10 +1174,8 @@ if ! "${skip_eval}"; then
         # 2. Generate run.sh
         log "Generate '${asr_exp}/${inference_tag}/run.sh'. You can resume the process from stage 12 using this script"
         mkdir -p "${asr_exp}/${inference_tag}"; echo "${run_args} --stage 12 \"\$@\"; exit \$?" > "${asr_exp}/${inference_tag}/run.sh"; chmod +x "${asr_exp}/${inference_tag}/run.sh"
-
         if "${use_k2}"; then
           # Now only _nj=1 is verified if using k2
-          _nj=1
           asr_inference_tool="espnet2.bin.asr_inference_k2"
 
           _opts+="--is_ctc_decoding ${k2_ctc_decoding} "
@@ -1192,9 +1184,13 @@ if ! "${skip_eval}"; then
           _opts+="--nll_batch_size ${nll_batch_size} "
           _opts+="--k2_config ${k2_config} "
         else
-          _nj=$(min "${inference_nj}" "$(<${key_file} wc -l)")
-          asr_inference_tool="espnet2.bin.asr_inference"
+          if "${use_streaming}"; then
+              asr_inference_tool="espnet2.bin.asr_inference_streaming"
+          else
+              asr_inference_tool="espnet2.bin.asr_inference"
+          fi
         fi
+
         for dset in ${test_sets}; do
             _data="${data_feats}/${dset}"
             _dir="${asr_exp}/${inference_tag}/${dset}"
@@ -1217,6 +1213,12 @@ if ! "${skip_eval}"; then
             # 1. Split the key file
             key_file=${_data}/${_scp}
             split_scps=""
+            if "${use_k2}"; then
+              # Now only _nj=1 is verified if using k2
+              _nj=1
+            else
+              _nj=$(min "${inference_nj}" "$(<${key_file} wc -l)")
+            fi
 
             for n in $(seq "${_nj}"); do
                 split_scps+=" ${_logdir}/keys.${n}.scp"
