@@ -7,18 +7,18 @@
 #PBS -P scse_aseschng
 
 ## Queue  Name
-#PBS -q gpu_free
+#PBS -q gpu8
 
 #PBS -j oe
 
 ## By default error and output files are in format  <job_name>.e<JOB_ID> and <job_name>.o<JOB_ID>.
 ## If you don't want in this format, you can change it as follows
-#PBS -o /home/prac0003/2_Modules/espnet/egs2/librispeech/asr1/secondpass_output/out.txt 
+#PBS -o /scratch/prac0003/2_secondpass_output/out.txt 
 ##PBS -e /home/prac0003/2_Modules/espnet/egs2/librispeech/asr1/myscripts/err.txt
 
 
 ## Specify walltime in HH:MM:SS
-#PBS -l walltime=4:00:00
+#PBS -l walltime=1440:00:00
 
 ## Select 1 hosts (nodes) with 32 cores per Host and launch 32 MPI tasks per host
 #PBS -l select=1:ncpus=4:ngpus=1
@@ -33,4 +33,4 @@ module load cuda/10.2
 cd $PBS_O_WORKDIR
 
 . /home/prac0003/2_Modules/espnet/tools/activate_python.sh
-python second_pass.py > secondpass_output/stdout.txt
+python 2_second_pass.py > 2_secondpass_output/stdout.txt

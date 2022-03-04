@@ -15,7 +15,7 @@ SECONDS=0
 stage=1
 stop_stage=100000
 data_url=www.openslr.org/resources/12
-train_set="train_960"
+train_set="train_100_clean"
 train_dev="dev"
 
 log "$0 $*"

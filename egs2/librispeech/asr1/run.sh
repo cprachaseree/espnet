@@ -5,13 +5,16 @@ set -e
 set -u
 set -o pipefail
 
-train_set="train_960"
+#train_set="train_960"
+train_set="train_clean_100"
 valid_set="dev"
 test_sets="test_clean test_other dev_clean dev_other"
 
 asr_config=conf/tuning/train_asr_conformer7_n_fft512_hop_length256.yaml
 lm_config=conf/tuning/train_lm_adam.yaml
 inference_config=conf/decode_asr.yaml
+
+# 10 to 13 stage later
 
 ./asr.sh \
     --lang en \
@@ -27,5 +30,5 @@ inference_config=conf/decode_asr.yaml
     --test_sets "${test_sets}" \
     --lm_train_text "data/${train_set}/text data/local/other_text/text" \
     --bpe_train_text "data/${train_set}/text" "$@" \
-    --stage 12 --stop_stage 13 --nj 8 --inference_nj  8 \
+    --stage 10 --stop_stage 13 --nj 8 --inference_nj  8 \
     --num_splits_asr 16 --num_splits_lm 1 --use-lm false

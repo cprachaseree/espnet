@@ -282,6 +282,79 @@ class Speech2Text:
 
         assert check_return_type(results)
         return results
+    
+    @torch.no_grad()
+    def batch_inference(
+        self, speech: Union[torch.Tensor, np.ndarray],
+        speech_lengths: Union[torch.Tensor, np.ndarray]
+    ) -> List[
+        Tuple[
+            Optional[str],
+            List[str],
+            List[int],
+            Union[Hypothesis, ExtTransHypothesis, TransHypothesis],
+        ]
+    ]:
+        """Inference
+
+        Args:
+            data: Input speech data
+        Returns:
+            text, token, token_int, hyp
+
+        """
+        assert check_argument_types()
+
+        # Input as audio signal
+        if isinstance(speech, np.ndarray):
+            speech = torch.tensor(speech)
+
+        speech = speech.to(getattr(torch, self.dtype))
+        batch = {"speech": speech, "speech_lengths": speech_lengths}
+
+        # a. To device
+        batch = to_device(batch, device=self.device)
+
+        # b. Forward Encoder
+        encoded, audio_lengths = self.asr_model.encode(**batch)
+        
+        full_results = [] 
+        for enc in encoded:
+            # c. Passed the encoder result and the beam search
+            if self.beam_search_transducer:
+                nbest_hyps = self.beam_search_transducer(enc)
+            else:
+                nbest_hyps = self.beam_search(
+                    x=enc, maxlenratio=self.maxlenratio, minlenratio=self.minlenratio
+                )
+
+            nbest_hyps = nbest_hyps[: self.nbest]
+
+            results = []
+            for hyp in nbest_hyps:
+                assert isinstance(hyp, (Hypothesis, TransHypothesis)), type(hyp)
+
+                # remove sos/eos and get results
+                last_pos = None if self.asr_model.use_transducer_decoder else -1
+                if isinstance(hyp.yseq, list):
+                    token_int = hyp.yseq[1:last_pos]
+                else:
+                    token_int = hyp.yseq[1:last_pos].tolist()
+
+                # remove blank symbol id, which is assumed to be 0
+                token_int = list(filter(lambda x: x != 0, token_int))
+
+                # Change integer-ids to tokens
+                token = self.converter.ids2tokens(token_int)
+
+                if self.tokenizer is not None:
+                    text = self.tokenizer.tokens2text(token)
+                else:
+                    text = None
+                results.append((text, token, token_int, hyp))
+            assert check_return_type(results)
+            full_results.append((results, enc, audio_lengths))
+        return full_results
 
     @staticmethod
     def from_pretrained(

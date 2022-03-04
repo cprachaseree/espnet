@@ -1,27 +1,27 @@
 ## Set job parameters
 
 ## Job Name
-#PBS -N espnet_rnnlm
+#PBS -N espnet_test
 
 ## Project Funding Code E,g. eee_userid
 #PBS -P scse_aseschng
 
 ## Queue  Name
-#PBS -q gpu8
+#PBS -q gpu_free
+
+#PBS -j oe
 
 ## By default error and output files are in format  <job_name>.e<JOB_ID> and <job_name>.o<JOB_ID>.
 ## If you don't want in this format, you can change it as follows
-##PBS -o my_output.out
-##PBS -e my_error.err
+#PBS -o /home/prac0003/2_Modules/espnet/egs2/librispeech/asr1/myscripts/bert_exp/outputs/out.txt 
+##PBS -e /home/prac0003/2_Modules/espnet/egs2/librispeech/asr1/myscripts/err.txt
 
-#PBS -j oe
-#PBS -o /scratch/prac0003/output/train_librispeech100_asr_stage_10-13.txt
 
 ## Specify walltime in HH:MM:SS
-#PBS -l walltime=1440:00:00
+#PBS -l walltime=1:00:00
 
 ## Select 1 hosts (nodes) with 32 cores per Host and launch 32 MPI tasks per host
-#PBS -l select=1:ncpus=16:ngpus=4
+#PBS -l select=1:ncpus=4:ngpus=1
 
 ## Load the Application
 #module load anaconda2020/python3
@@ -33,4 +33,4 @@ module load cuda/10.2
 cd $PBS_O_WORKDIR
 
 . /home/prac0003/2_Modules/espnet/tools/activate_python.sh
-./run.sh
+python finetune_bert.py > bert_exp/outputs/stdout.txt
