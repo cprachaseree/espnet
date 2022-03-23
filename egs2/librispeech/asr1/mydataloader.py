@@ -1,7 +1,9 @@
 import os
 import glob
 import deepdish as dd
+import torch
 from torch.utils.data import Dataset, DataLoader
+from torch.nn.utils.rnn import pad_sequence
 
 class MyDataset(Dataset):
     def __init__(self, data_path):
@@ -31,36 +33,40 @@ def my_collate_fn(data):
     batch_transcript = []
     for d in data:
         encoded_audio = d['encoded_audio']
-        print("encoded audio", encoded_audio.size()) 
+        #print("encoded audio", encoded_audio.size()) 
         batch_encoded_audio.append(encoded_audio)
         encoded_hypotheses = d['encoded_hypotheses']
         encoded_hypotheses_hidden_state = encoded_hypotheses['last_hidden_state']
         encoded_hypotheses_pooler_out = encoded_hypotheses['pooler_output']
-        encoded_hypotheses_concat = torch.cat(torch.unsqueeze(encoded_hypotheses_pooler_out, dim=1), encoded_hypotheses_hidden_state)
+        #print("text_last_hidden_state", encoded_hypotheses_hidden_state.size())
+        #print("text_pooler", encoded_hypotheses_pooler_out.size())
+        encoded_hypotheses_concat = torch.cat((torch.unsqueeze(encoded_hypotheses_pooler_out, dim=1), encoded_hypotheses_hidden_state), dim=1)
+        encoded_hypotheses_concat = torch.permute(encoded_hypotheses_concat, (1, 0, 2))
         batch_encoded_hypotheses.append(encoded_hypotheses_concat)
-        print("text_last_hidden_state", encoded_hypotheses_hidden_state.size())
-        print("text_pooler", encoded_hypotheses_pooler_out.size())
         hypotheses = d['hypotheses']
-        print("hypotheses", hypotheses)
+        #print("hypotheses", hypotheses)
         batch_hypotheses.append(hypotheses)
         hypotheses_lengths = d['hypotheses_lengths']
-        print("h lengths", hypotheses_lengths)
+        #print("h lengths", hypotheses_lengths)
         batch_hypotheses_lengths.append(torch.add(hypotheses_lengths, 1))
         audio_length = d['speech_length']
-        print("audio_length", audio_length)
+        #print("audio_length", audio_length)
         batch_audio_lengths.append(audio_length)
         transcript = d['transcript']
-        print("transcript", transcript)
+        #print("transcript", transcript)
         batch_transcript.append(transcript)
+    batch_encoded_audio = pad_sequence(batch_encoded_audio, batch_first=True)
+    #print("batch_encoded_audio", batch_encoded_audio.size())
+    batch_encoded_hypotheses = pad_sequence(batch_encoded_hypotheses, batch_first=True)
+    #print("batch_encoded_hypotheses", batch_encoded_hypotheses.size())
     data = {
-        "batch_encoded_audio": 
+        "batch_encoded_audio": batch_encoded_audio,
+        "batch_encoded_hypotheses": batch_encoded_hypotheses,
+        "batch_hypotheses": batch_hypotheses,
+        "batch_hypotheses_lengths": batch_hypotheses_lengths,
+        "batch_audio_lengths": batch_audio_lengths,
+        "batch_transcript": batch_transcript
     }
-    batch_encoded_audio = []
-    batch_encoded_hypotheses = []
-    batch_hypotheses = []
-    batch_hypotheses_lengths = []
-    batch_audio_lengths = []
-    batch_transcript = []
     return data
 
 def get_my_dataloader(data_path, batch_size, shuffle=True, collate_fn=None):

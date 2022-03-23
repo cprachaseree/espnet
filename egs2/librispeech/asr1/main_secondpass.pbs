@@ -7,7 +7,7 @@
 #PBS -P scse_aseschng
 
 ## Queue  Name
-#PBS -q gpu_free
+#PBS -q gpu8
 
 #PBS -j oe
 

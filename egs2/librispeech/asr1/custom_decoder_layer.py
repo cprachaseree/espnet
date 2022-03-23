@@ -10,6 +10,7 @@ from espnet.nets.pytorch_backend.transformer.embedding import PositionalEncoding
 from espnet.nets.pytorch_backend.transformer.positionwise_feed_forward import (
     PositionwiseFeedForward,
 )
+from espnet.nets.pytorch_backend.nets_utils import make_pad_mask
 
 from typeguard import check_argument_types
 
@@ -120,7 +121,7 @@ class MyDecoderLayer(nn.Module):
             x = torch.cat([cache, x], dim=1)
 
         #return x, tgt_mask, memory, memory_mask
-        return tgt, tgt_mask, audio, audio_mask, lmembed, lmembed_mask
+        return x, tgt_mask, audio, audio_mask, lmembed, lmembed_mask
 
 # espnet2.asr.decoder.transformer_decoder
 class MyDecoder(BaseTransformerDecoder):
@@ -187,8 +188,58 @@ class MyDecoder(BaseTransformerDecoder):
         ys_in_lens
     ):
         # need to create masks for audio, lm, and decoder input
-        pass
+        tgt = ys_in_pad
+        tgt_mask = (~make_pad_mask(ys_in_lens)[:, None, :]).to(tgt.device)
+        m = subsequent_mask(tgt_mask.size(-1), device=tgt_mask.device).unsqueeze(0)
+        # tgt_mask: (B, L, L)
+        tgt_mask = tgt_mask & m
 
-    def forward_one_step(self):
-        pass
+        audio = hs_audio_pad
+        audio_mask = (~make_pad_mask(h_audio_lens, maxlen=audio_mask.size(1)))[:, None, :].to(
+            audio.device
+        )
+ 
+        lmembed = hs_lm_pad
+        lm_mask = (~make_pad_mask(h_lm_lens, maxlen=lm_mask.size(1)))[:, None, :].to(
+            lmembed.device
+        )
+        
+        x = self.embed(tgt)
+        x, tgt_mask, audio, audio_mask, lmembed, lmembed_mask = self.decoders(
+            x, tgt_mask, audio, audio_mask, lmembed, lmembed_mask
+        )
+        if self.normalize_before:
+            x = self.after_norm(x)
+        if self.output_layer is not None:
+            x = self.output_layer(x)
+
+        olens = tgt_mask.sum(1)
+        return x, olens
+    # memory to audio and lmembeds
+    def forward_one_step(
+        self,
+        tgt,
+        tgt_mask,
+        audio,
+        lmembeds,
+        cache
+    ):
+        x = self.embed(tgt)
+        if cache is None:
+            cache = [None] * len(self.decoders)
+        new_cache = []
+        for c, decoder in zip(cache, self.decoders):
+            x, tgt_mask, audio, audio_mask, lmembed, lmembed_mask = decoder(
+                x, tgt_mask, audio, None, lmembed, None, cache=c
+            )
+            new_cache.append(x)
+
+        if self.normalize_before:
+            y = self.after_norm(x[:, -1])
+        else:
+            y = x[:, -1]
+        if self.output_layer is not None:
+            y = torch.log_softmax(self.output_layer(y), dim=-1)
+
+        return y, new_cache
  

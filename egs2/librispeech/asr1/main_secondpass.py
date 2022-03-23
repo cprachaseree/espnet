@@ -7,6 +7,7 @@ def train(decoder, dataloader, epochs):
     for epoch in range(1, epochs+1):
         for data in dataloader:
             print(data)
+            out = decoder(data)
             break
         break
 
