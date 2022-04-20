@@ -27,5 +27,5 @@ inference_config=conf/decode_asr.yaml
     --test_sets "${test_sets}" \
     --lm_train_text "data/${train_set}/text data/local/other_text/text" \
     --bpe_train_text "data/${train_set}/text" "$@" \
-    --stage 12 --stop_stage 13 --nj 8 --inference_nj  8 \
-    --num_splits_asr 16 --num_splits_lm 1 --use-lm false
+    --stage 13 --stop_stage 100 --nj 8 --inference_nj  8 \
+    --num_splits_asr 16 --num_splits_lm 1 --use-lm false \

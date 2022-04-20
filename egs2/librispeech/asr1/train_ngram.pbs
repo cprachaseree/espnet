@@ -1,28 +1,27 @@
 ## Set job parameters
 
 ## Job Name
-#PBS -N espnet_rnnlm
+#PBS -N espnet_test
 
 ## Project Funding Code E,g. eee_userid
 #PBS -P scse_aseschng
 
 ## Queue  Name
-#PBS -q gpu8
+#PBS -q q32
+
+#PBS -j oe
 
 ## By default error and output files are in format  <job_name>.e<JOB_ID> and <job_name>.o<JOB_ID>.
 ## If you don't want in this format, you can change it as follows
-##PBS -o my_output.out
+#PBS -o /scratch/prac0003/output/output_ngram_medical.txt
 ##PBS -e my_error.err
 
-#PBS -j oe
-#PBS -o /scratch/prac0003/output/output_rnntdecode_withlm.txt
 
 ## Specify walltime in HH:MM:SS
-#PBS -l walltime=24:00:00
-#
+#PBS -l walltime=4:00:00
 
 ## Select 1 hosts (nodes) with 32 cores per Host and launch 32 MPI tasks per host
-#PBS -l select=1:ncpus=16:ngpus=4
+#PBS -l select=1:ncpus=32:mpiprocs=32
 
 ## Load the Application
 #module load anaconda2020/python3
@@ -33,5 +32,5 @@ module load cuda/10.2
 ## pre-processing script
 cd $PBS_O_WORKDIR
 
-. /home/prac0003/2_Modules/espnet/tools/activate_python.sh
-./run_rnnt.sh
+. ./path.sh
+./train_ngram.sh

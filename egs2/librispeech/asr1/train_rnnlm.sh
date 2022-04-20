@@ -5,13 +5,17 @@ set -e
 set -u
 set -o pipefail
 
-train_set="train_960"
-valid_set="dev"
-test_sets="test_clean test_other dev_clean dev_other"
+#train_set="train_960"
+#valid_set="dev"
+#test_sets="test_clean test_other dev_clean dev_other"
 
-asr_config=conf/train_rnnt_conformer.yaml
-lm_config=conf/tuning/train_lm_adam.yaml
-inference_config=conf/decode_rnnt_conformer.yaml
+train_set="train_2"
+valid_set="validate"
+test_sets="test_2"
+
+asr_config=conf/tuning/train_asr_conformer7_n_fft512_hop_length256.yaml
+lm_config=conf/tuning/train_lm_adam_finetune.yaml
+inference_config=conf/decode_asr.yaml
 
 ./asr.sh \
     --lang en \
@@ -25,9 +29,9 @@ inference_config=conf/decode_rnnt_conformer.yaml
     --train_set "${train_set}" \
     --valid_set "${valid_set}" \
     --test_sets "${test_sets}" \
-    --lm_train_text "data/${train_set}/text data/local/other_text/text" \
+    --lm_train_text "dump/raw/sgh_med_keyed_upper.txt" \
     --bpe_train_text "data/${train_set}/text" "$@" \
-    --stage 12 --stop_stage 16 --nj 8 --inference_nj  8 \
+    --stage 6 --stop_stage 9 --nj 8 --inference_nj 32 \
     --num_splits_asr 16 --num_splits_lm 1 --use-lm true \
-    --inference_asr_model valid.loss.ave.pth \
-    --gpu_inference true
+    --lm_tag finetune_sghnoaugmed \
+    --lm_dev_text /home/prac0003/2_Modules/espnet/egs2/librispeech/asr1/dump/raw_medical/validate/text

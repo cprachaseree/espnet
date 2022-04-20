@@ -7,11 +7,12 @@ set -o pipefail
 
 train_set="train_960"
 valid_set="dev"
-test_sets="test_clean test_other dev_clean dev_other"
+#test_sets="test_clean test_other dev_clean dev_other"
+test_sets="test_2 test_2_gdspk"
 
-asr_config=conf/train_rnnt_conformer.yaml
-lm_config=conf/tuning/train_lm_adam.yaml
-inference_config=conf/decode_rnnt_conformer.yaml
+asr_config=conf/tuning/train_asr_conformer7_n_fft512_hop_length256.yaml
+lm_config=conf/train_adam.yaml
+inference_config=conf/my_decode_asr_2.yaml
 
 ./asr.sh \
     --lang en \
@@ -27,7 +28,7 @@ inference_config=conf/decode_rnnt_conformer.yaml
     --test_sets "${test_sets}" \
     --lm_train_text "data/${train_set}/text data/local/other_text/text" \
     --bpe_train_text "data/${train_set}/text" "$@" \
-    --stage 12 --stop_stage 16 --nj 8 --inference_nj  8 \
+    --stage 12 --stop_stage 100 --nj 8 --inference_nj 32 \
     --num_splits_asr 16 --num_splits_lm 1 --use-lm true \
-    --inference_asr_model valid.loss.ave.pth \
-    --gpu_inference true
+    --lm_tag lm_train_lm_adam_en_bpe5000  \
+#    --use-ngram true --ngram-exp exp/ngram_dedup_noaug

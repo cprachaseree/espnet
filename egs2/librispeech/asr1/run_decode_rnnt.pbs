@@ -7,7 +7,7 @@
 #PBS -P scse_aseschng
 
 ## Queue  Name
-#PBS -q gpu8
+#PBS -q q64
 
 ## By default error and output files are in format  <job_name>.e<JOB_ID> and <job_name>.o<JOB_ID>.
 ## If you don't want in this format, you can change it as follows
@@ -15,14 +15,14 @@
 ##PBS -e my_error.err
 
 #PBS -j oe
-#PBS -o /scratch/prac0003/output/output_rnntdecode_withlm.txt
+#PBS -o /scratch/prac0003/output/output_rnntdecode_tedlium_nolm.txt
 
 ## Specify walltime in HH:MM:SS
-#PBS -l walltime=24:00:00
+#PBS -l walltime=4:00:00
 #
 
 ## Select 1 hosts (nodes) with 32 cores per Host and launch 32 MPI tasks per host
-#PBS -l select=1:ncpus=16:ngpus=4
+#PBS -l select=1:ncpus=64:mpiprocs=64
 
 ## Load the Application
 #module load anaconda2020/python3
@@ -34,4 +34,4 @@ module load cuda/10.2
 cd $PBS_O_WORKDIR
 
 . /home/prac0003/2_Modules/espnet/tools/activate_python.sh
-./run_rnnt.sh
+./run_rnnt_decode.sh
