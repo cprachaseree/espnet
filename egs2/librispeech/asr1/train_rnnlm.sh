@@ -11,7 +11,7 @@ set -o pipefail
 
 train_set="train_2"
 valid_set="validate"
-test_sets="test_2"
+test_sets="sgh_dev"
 
 asr_config=conf/tuning/train_asr_conformer7_n_fft512_hop_length256.yaml
 lm_config=conf/tuning/train_lm_adam_finetune.yaml
@@ -31,7 +31,7 @@ inference_config=conf/decode_asr.yaml
     --test_sets "${test_sets}" \
     --lm_train_text "dump/raw/sgh_med_keyed_upper.txt" \
     --bpe_train_text "data/${train_set}/text" "$@" \
-    --stage 6 --stop_stage 9 --nj 8 --inference_nj 32 \
+    --stage 8 --stop_stage 9 --nj 8 --inference_nj 32 \
     --num_splits_asr 16 --num_splits_lm 1 --use-lm true \
-    --lm_tag finetune_sghnoaugmed \
+    --lm_tag train_lm_adam_en_bpe5000 \
     --lm_dev_text /home/prac0003/2_Modules/espnet/egs2/librispeech/asr1/dump/raw_medical/validate/text
